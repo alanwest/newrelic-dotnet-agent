@@ -10,38 +10,29 @@ using System.Threading.Tasks;
 using NewRelic.Agent.Api;
 using NewRelic.Agent.Api.Experimental;
 using NewRelic.Agent.Extensions.Providers.Wrapper;
-using NewRelic.SystemExtensions;
 
 namespace NewRelic.Providers.Wrapper.HttpClient
 {
-    public class SendAsync : IWrapper
+    public class SendAsyncFactory : MethodWrapper<System.Net.Http.HttpClient>
     {
-        public const string InstrumentedTypeName = "System.Net.Http.HttpClient";
-
-        public bool IsTransactionRequired => true;
-
-        public CanWrapResponse CanWrap(InstrumentedMethodInfo methodInfo)
+        public SendAsyncFactory(IAgent agent, ITransaction transaction, InstrumentedMethodCall instrumentedMethodCall, System.Net.Http.HttpClient invocationTarget)
+            : base(agent, transaction, instrumentedMethodCall, invocationTarget)
         {
-            var method = methodInfo.Method;
-            if (method.MatchesAny(assemblyName: "System.Net.Http", typeName: InstrumentedTypeName, methodName: "SendAsync"))
-            {
-                return TaskFriendlySyncContextValidator.CanWrapAsyncMethod("System.Net.Http", "System.Net.Http.HttpClient", method.MethodName);
-            }
-            else
-            {
-                return new CanWrapResponse(false);
-            }
         }
 
-        public AfterWrappedMethodDelegate BeforeWrappedMethod(InstrumentedMethodCall instrumentedMethodCall, IAgent agent, ITransaction transaction)
+        [MethodWrapper(UsesContinuation = true)]
+        public AfterWrappedMethodDelegate SendAsync(
+            HttpRequestMessage httpRequestMessage,
+            System.Net.Http.HttpCompletionOption option,
+            System.Threading.CancellationToken token)
         {
-            if (instrumentedMethodCall.IsAsync)
+            var httpClient = InvocationTarget;
+
+            if (InstrumentedMethodCall.IsAsync)
             {
-                transaction.AttachToAsync();
+                Transaction.AttachToAsync();
             }
 
-            var httpRequestMessage = instrumentedMethodCall.MethodCall.MethodArguments.ExtractNotNullAs<HttpRequestMessage>(0);
-            var httpClient = (System.Net.Http.HttpClient)instrumentedMethodCall.MethodCall.InvocationTarget;
             var uri = TryGetAbsoluteUri(httpRequestMessage, httpClient);
             if (uri == null)
             {
@@ -51,13 +42,13 @@ namespace NewRelic.Providers.Wrapper.HttpClient
 
             var method = (httpRequestMessage.Method != null ? httpRequestMessage.Method.Method : "<unknown>") ?? "<unknown>";
 
-            var transactionExperimental = transaction.GetExperimentalApi();
+            var transactionExperimental = Transaction.GetExperimentalApi();
 
             var externalSegmentData = transactionExperimental.CreateExternalSegmentData(uri, method);
-            var segment = transactionExperimental.StartSegment(instrumentedMethodCall.MethodCall);
+            var segment = transactionExperimental.StartSegment(InstrumentedMethodCall.MethodCall);
             segment.GetExperimentalApi().SetSegmentData(externalSegmentData);
 
-            if (agent.Configuration.ForceSynchronousTimingCalculationHttpClient)
+            if (Agent.Configuration.ForceSynchronousTimingCalculationHttpClient)
             {
                 //When segments complete on a thread that is different than the thread of the parent segment,
                 //we typically do not deduct the child segment's duration from the parent segment's duration
@@ -74,7 +65,7 @@ namespace NewRelic.Providers.Wrapper.HttpClient
 
 
             // We cannot rely on SerializeHeadersWrapper to attach the headers because it is called on a thread that does not have access to the transaction
-            TryAttachHeadersToRequest(agent, httpRequestMessage);
+            TryAttachHeadersToRequest(Agent, httpRequestMessage);
 
             // 1.  Since this finishes on a background thread, it is possible it will race the end of
             //     the transaction. Using holdTransactionOpen = true to prevent the transaction from ending early.
@@ -82,11 +73,11 @@ namespace NewRelic.Providers.Wrapper.HttpClient
             //     blocking TPL pattern of .Result or .Wait(). Posting to the sync context will result
             //     in recording time waiting for the current unit of work on the sync context to finish.
             //     This overload GetAsyncDelegateFor does not use the synchronization context's task scheduler.
-            return Delegates.GetAsyncDelegateFor<Task<HttpResponseMessage>>(agent, segment, true, InvokeTryProcessResponse);
+            return Delegates.GetAsyncDelegateFor<Task<HttpResponseMessage>>(Agent, segment, true, InvokeTryProcessResponse);
 
             void InvokeTryProcessResponse(Task<HttpResponseMessage> httpResponseMessage)
             {
-                TryProcessResponse(agent, httpResponseMessage, transaction, segment, externalSegmentData);
+                TryProcessResponse(Agent, httpResponseMessage, Transaction, segment, externalSegmentData);
             }
         }
 

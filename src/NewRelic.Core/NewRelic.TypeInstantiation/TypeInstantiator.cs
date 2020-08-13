@@ -4,6 +4,7 @@
 */
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 
@@ -127,6 +128,25 @@ namespace NewRelic.TypeInstantiation
             return ExportedInstancesFromAssemblies<T>(assemblies.ToArray());
         }
 
+        public static GetTypesResult ExportedTypesFromDirectory<T>(String directoryPath, Boolean recursive = false)
+        {
+            if (directoryPath == null)
+                return new GetTypesResult(null, null);
+            if (!Directory.Exists(directoryPath))
+                return new GetTypesResult(null, null);
+
+            var assemblyPaths = Directory.GetFiles(directoryPath, "*.dll", recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly);
+            var assemblies = assemblyPaths.Select(AssemblyFromPath);
+            if (assemblies == null)
+                return new GetTypesResult(null, null);
+
+            var result = GetExportedTypes(assemblies);
+            return new GetTypesResult(
+                result.Types
+                .Where(TypeIsInstantiatable)
+                .Where(TypeImplements<T>), result.Exceptions);
+        }
+
         public static TypeInstantiatorResult<T> ExportedInstancesFromAssemblies<T>(params Assembly[] assemblies)
         {
             if (assemblies == null)
@@ -171,7 +191,7 @@ namespace NewRelic.TypeInstantiation
             return new TypeInstantiatorResult<T>(instances, exceptions);
         }
 
-        private class GetTypesResult
+        public class GetTypesResult
         {
             public readonly IEnumerable<Type> Types;
 

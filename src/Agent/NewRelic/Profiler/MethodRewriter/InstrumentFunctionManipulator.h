@@ -178,8 +178,7 @@ namespace NewRelic { namespace Profiler { namespace MethodRewriter
             _instructions->Append(_X("stelem.ref"));
             _instructions->Append(_X("dup"));
             _instructions->Append(_X("ldc.i4.4"));
-            _instructions->Append(CEE_LDTOKEN, _function->GetTypeToken());
-            _instructions->Append(_X("call class [mscorlib]System.Type [mscorlib]System.Type::GetTypeFromHandle(valuetype [mscorlib]System.RuntimeTypeHandle)"));
+            _instructions->Append(_X("call class [mscorlib]System.Reflection.MethodBase [mscorlib]System.Reflection.MethodBase::GetCurrentMethod()"));
             _instructions->Append(_X("stelem.ref"));
             _instructions->Append(_X("dup"));
             _instructions->Append(_X("ldc.i4.5"));

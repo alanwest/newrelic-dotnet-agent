@@ -35,7 +35,7 @@ namespace CompositeTests
             transaction.End();
             _compositeTestAgent.SetTransactionOnPrimaryContextStorage(transaction);
 
-            var type = typeof(WrapperServiceTests);
+            var method = typeof(WrapperServiceTests).GetMethod(nameof(BeforeWrappedMethod_ReturnsNoOp_IfTheRequiredTransactionIsFinished));
             var methodName = "MyMethod";
             var tracerFactoryName = "NewRelic.Agent.Core.Wrapper.DefaultWrapper";
             var target = new object();
@@ -44,7 +44,7 @@ namespace CompositeTests
             using (var logging = new Logging())
             {
                 var wrapperService = _compositeTestAgent.GetWrapperService();
-                var afterWrappedMethod = wrapperService.BeforeWrappedMethod(type, methodName, string.Empty, target, arguments, tracerFactoryName, null, 0, 0);
+                var afterWrappedMethod = wrapperService.BeforeWrappedMethod(method, methodName, string.Empty, target, arguments, tracerFactoryName, null, 0, 0);
 
                 Assert.AreEqual(Delegates.NoOp, afterWrappedMethod, "AfterWrappedMethod was not the NoOp delegate.");
                 Assert.True(logging.HasMessageThatContains("Transaction has already ended, skipping method"), "Expected log message was not found.");

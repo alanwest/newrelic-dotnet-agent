@@ -115,6 +115,18 @@ namespace NewRelic.Agent.Core.Utilities
             return result.Instances;
         }
 
+        public static IEnumerable<Type> LoadExtensionTypes<T>()
+        {
+            var result = TypeInstantiator.ExportedTypesFromDirectory<T>(AgentInstallConfiguration.InstallPathExtensionsDirectory, true);
+
+            foreach (var ex in result.Exceptions)
+            {
+                Log.Warn($"An exception occurred while loading an extension: {ex}");
+            }
+
+            return result.Types;
+        }
+
         public static IEnumerable<IWrapper> LoadWrappers()
         {
             try

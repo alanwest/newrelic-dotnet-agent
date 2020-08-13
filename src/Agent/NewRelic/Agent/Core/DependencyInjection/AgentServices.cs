@@ -72,6 +72,7 @@ namespace NewRelic.Agent.Core.DependencyInjection
 
             // IWrapper map
             container.RegisterFactory<IEnumerable<IWrapper>>(() => ExtensionsLoader.LoadWrappers());
+            container.RegisterFactory<MethodWrapperTypes>(() => new MethodWrapperTypes(ExtensionsLoader.LoadExtensionTypes<IMethodWrapper>()));
             container.Register<IWrapperMap, WrapperMap>();
 
             // Other
@@ -87,10 +88,10 @@ namespace NewRelic.Agent.Core.DependencyInjection
             container.Register<ThreadStatsSampler, ThreadStatsSampler>();
             container.Register<IGcSampleTransformer, GcSampleTransformer>();
 #if NETFRAMEWORK
-			container.Register<Func<string, IPerformanceCounterCategoryProxy>>(PerformanceCounterProxyFactory.DefaultCreatePerformanceCounterCategoryProxy);
-			container.Register<Func<string, string, string, IPerformanceCounterProxy>>(PerformanceCounterProxyFactory.DefaultCreatePerformanceCounterProxy);
-			container.Register<IPerformanceCounterProxyFactory, PerformanceCounterProxyFactory>();
-			container.Register<GcSampler, GcSampler>();
+            container.Register<Func<string, IPerformanceCounterCategoryProxy>>(PerformanceCounterProxyFactory.DefaultCreatePerformanceCounterCategoryProxy);
+            container.Register<Func<string, string, string, IPerformanceCounterProxy>>(PerformanceCounterProxyFactory.DefaultCreatePerformanceCounterProxy);
+            container.Register<IPerformanceCounterProxyFactory, PerformanceCounterProxyFactory>();
+            container.Register<GcSampler, GcSampler>();
 #else
             container.Register<Func<ISampledEventListener<Dictionary<GCSampleType, float>>>>(() => new GCEventsListener());
             container.Register<Func<GCSamplerNetCore.SamplerIsApplicableToFrameworkResult>>(GCSamplerNetCore.FXsamplerIsApplicableToFrameworkDefault);

@@ -2,10 +2,55 @@
 * Copyright 2020 New Relic Corporation. All rights reserved.
 * SPDX-License-Identifier: Apache-2.0
 */
+using System;
+using System.Collections.Generic;
 using NewRelic.Agent.Api;
 
 namespace NewRelic.Agent.Extensions.Providers.Wrapper
 {
+    /// <summary>
+    /// This option attribute can be used on a MethodWrapper to indicate that it should
+    /// make the implementations of an interface instead of a specific class.
+    /// </summary>
+    [AttributeUsage(AttributeTargets.Class)]
+    public class ClassWrapperAttribute : Attribute
+    {
+        public bool MatchInterface = false;
+    }
+
+    /// <summary>
+    /// This attribute marks methods in a MethodWrapper that are meant to intercept (wrap)
+    /// a method on the targeted class.
+    /// </summary>
+    [AttributeUsage(AttributeTargets.Method)]
+    public class MethodWrapperAttribute : Attribute
+    {
+        public bool TransactionRequired = true;
+        public bool UsesContinuation = false;
+    }
+
+    /// <summary>
+    /// A method wrapper targets either a specific class or implementations of an interface.
+    /// An instance of the method wrapper will be instantiated for each instrumented method 
+    /// invocation which it handles.
+    /// </summary>
+    /// <typeparam name="I">The invocation target type.</typeparam>
+    public abstract class MethodWrapper<I> : IMethodWrapper
+    {
+        protected I InvocationTarget { get; }
+        protected ITransaction Transaction { get; }
+        protected InstrumentedMethodCall InstrumentedMethodCall { get; }
+        protected IAgent Agent { get; }
+
+        public MethodWrapper(IAgent agent, ITransaction transaction, InstrumentedMethodCall instrumentedMethodCall, I invocationTarget)
+        {
+            Agent = agent;
+            Transaction = transaction;
+            InstrumentedMethodCall = instrumentedMethodCall;
+            InvocationTarget = invocationTarget;
+        }
+    }
+
     public interface IWrapper
     {
         /// <summary>
@@ -29,5 +74,23 @@ namespace NewRelic.Agent.Extensions.Providers.Wrapper
         /// </summary>
         /// <returns></returns>
         bool IsTransactionRequired { get; }
+    }
+
+    /// <summary>
+    /// Wrappers should not directly reference this interface.  Use the MethodWrapper class instead.
+    /// </summary>
+    public interface IMethodWrapper { }
+
+    /// <summary>
+    /// A container of classes that extend the MethodWrapper class.
+    /// </summary>
+    public sealed class MethodWrapperTypes
+    {
+        public Type[] Types { get; }
+
+        public MethodWrapperTypes(IEnumerable<Type> types)
+        {
+            Types = new List<Type>(types).ToArray();
+        }
     }
 }

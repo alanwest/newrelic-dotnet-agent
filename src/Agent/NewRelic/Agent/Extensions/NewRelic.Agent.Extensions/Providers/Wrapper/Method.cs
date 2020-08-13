@@ -3,17 +3,21 @@
 * SPDX-License-Identifier: Apache-2.0
 */
 using System;
+using System.Reflection;
 
 namespace NewRelic.Agent.Extensions.Providers.Wrapper
 {
     public class Method
     {
+        private static readonly ParameterInfo[] EMPTY_PARAMETER_INFO = new ParameterInfo[0];
+
         public readonly Type Type;
         public readonly string MethodName;
         public readonly string ParameterTypeNames;
+        public readonly ParameterInfo[] Parameters;
         private readonly int _hashCode;
 
-        public Method(Type type, string methodName, string parameterTypeNames, int hashCode)
+        public Method(Type type, string methodName, ParameterInfo[] parameters, string parameterTypeNames, int hashCode)
         {
             if (type == null)
                 throw new ArgumentNullException("type");
@@ -21,17 +25,21 @@ namespace NewRelic.Agent.Extensions.Providers.Wrapper
             if (methodName == null)
                 throw new ArgumentNullException("methodName");
 
+            if (parameters == null)
+                throw new ArgumentNullException("parameters");
+
             if (parameterTypeNames == null)
                 throw new ArgumentNullException("parameterTypeNames");
 
             Type = type;
+            Parameters = parameters;
             MethodName = methodName;
             ParameterTypeNames = parameterTypeNames;
             _hashCode = hashCode;
         }
 
         public Method(Type type, string methodName, string parameterTypeNames) :
-            this(type, methodName, parameterTypeNames, GetHashCode(type, methodName, parameterTypeNames))
+            this(type, methodName, EMPTY_PARAMETER_INFO, parameterTypeNames, GetHashCode(type, methodName, parameterTypeNames))
         {
         }
 

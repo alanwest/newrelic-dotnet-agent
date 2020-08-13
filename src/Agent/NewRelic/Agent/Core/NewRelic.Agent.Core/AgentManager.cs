@@ -18,6 +18,7 @@ using NewRelic.Agent.Core.Utilities;
 using NewRelic.Agent.Core.Wrapper;
 using NewRelic.Core.Logging;
 using System;
+using System.Reflection;
 
 namespace NewRelic.Agent.Core
 {
@@ -215,12 +216,12 @@ namespace NewRelic.Agent.Core
         /// <param name="arguments"></param>
         /// <returns>Returns an ITracer, although it is given as the much simpler Object;
         /// an Object is the preferred type because it has a trival type signature.</returns>
-        public ITracer GetTracerImpl(string tracerFactoryName, uint tracerArguments, string metricName, string assemblyName, Type type, string typeName, string methodName, string argumentSignature, object invocationTarget, object[] arguments, ulong functionId)
+        public ITracer GetTracerImpl(string tracerFactoryName, uint tracerArguments, string metricName, string assemblyName, MethodBase method, string typeName, string methodName, string argumentSignature, object invocationTarget, object[] arguments, ulong functionId)
         {
             try
             {
                 // First try to get a wrapper from the newer WrapperService
-                var afterWrappedMethodDelegate = _wrapperService.BeforeWrappedMethod(type, methodName, argumentSignature, invocationTarget, arguments, tracerFactoryName, metricName, tracerArguments, functionId);
+                var afterWrappedMethodDelegate = _wrapperService.BeforeWrappedMethod(method, methodName, argumentSignature, invocationTarget, arguments, tracerFactoryName, metricName, tracerArguments, functionId);
                 return (afterWrappedMethodDelegate != null) ? new WrapperTracer(afterWrappedMethodDelegate) : null;
             }
             catch (Exception e)

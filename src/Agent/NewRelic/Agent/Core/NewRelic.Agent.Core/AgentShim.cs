@@ -4,6 +4,7 @@
 */
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Threading;
 using NewRelic.Agent.Core.Tracer;
 
@@ -107,7 +108,7 @@ namespace NewRelic.Agent.Core
             uint tracerArguments,
             string metricName,
             string assemblyName,
-            Type type,
+            MethodBase method,
             string typeName,
             string methodName,
             string argumentSignature,
@@ -127,7 +128,7 @@ namespace NewRelic.Agent.Core
                 tracerArguments,
                 metricName,
                 assemblyName,
-                type,
+                method,
                 typeName,
                 methodName,
                 argumentSignature,
@@ -174,7 +175,7 @@ namespace NewRelic.Agent.Core
             uint tracerArguments,
             string metricName,
             string assemblyName,
-            Type type,
+            MethodBase method,
             string typeName,
             string methodName,
             string argumentSignature,
@@ -184,8 +185,8 @@ namespace NewRelic.Agent.Core
         {
             try
             {
-                if (type == null)
-                    throw new ArgumentNullException("type");
+                if (method == null)
+                    throw new ArgumentNullException("method");
                 if (assemblyName == null)
                     throw new ArgumentNullException("assemblyName");
                 if (typeName == null)
@@ -207,7 +208,7 @@ namespace NewRelic.Agent.Core
                     tracerArguments,
                     metricName,
                     assemblyName,
-                    type,
+                    method,
                     typeName,
                     methodName,
                     argumentSignature,

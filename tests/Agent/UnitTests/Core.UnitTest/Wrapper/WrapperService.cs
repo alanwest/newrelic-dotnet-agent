@@ -11,6 +11,8 @@ using Telerik.JustMock;
 using System.Collections.Generic;
 using NewRelic.Agent.Core.Utilities;
 using NewRelic.Agent.Api;
+using System.Reflection;
+using System.Linq;
 
 namespace NewRelic.Agent.Core.Wrapper
 {
@@ -67,13 +69,18 @@ namespace NewRelic.Agent.Core.Wrapper
             const string tracerFactoryName = "MyTracer";
             var target = new object();
             var arguments = new object[0];
-            _wrapperService.BeforeWrappedMethod(type, methodName, string.Empty, target, arguments, tracerFactoryName, null, EmptyTracerArgs, 0);
+            _wrapperService.BeforeWrappedMethod(GetMethod(type, methodName), methodName, string.Empty, target, arguments, tracerFactoryName, null, EmptyTracerArgs, 0);
 
             var method = new Method(type, methodName, string.Empty);
             var expectedMethodCall = new MethodCall(method, target, arguments);
             var instrumetedMethodInfo = new InstrumentedMethodInfo(0, expectedMethodCall.Method, tracerFactoryName, false, null, null, false);
 
             Mock.Assert(() => _wrapperMap.Get(instrumetedMethodInfo));
+        }
+
+        private MethodBase GetMethod(Type type, string methodName)
+        {
+            return Mock.Create<MethodBase>();
         }
 
         [Test]
@@ -91,7 +98,7 @@ namespace NewRelic.Agent.Core.Wrapper
             var target = new object();
             var arguments = new object[0];
 
-            var action = _wrapperService.BeforeWrappedMethod(type, methodName, string.Empty, target, arguments, tracerFactoryName, null, EmptyTracerArgs, 0);
+            var action = _wrapperService.BeforeWrappedMethod(GetMethod(type, methodName), methodName, string.Empty, target, arguments, tracerFactoryName, null, EmptyTracerArgs, 0);
             action(null, null);
 
             Assert.AreEqual("foo", result);
@@ -101,7 +108,7 @@ namespace NewRelic.Agent.Core.Wrapper
         public void BeforeWrappedMethod_UsesDefaultWrapper_IfNoMatchingWrapper_ButDefaultWrapperCanWrapReturnsTrue()
         {
             var result = null as string;
-            var wrapperMap = new WrapperMap(new List<IWrapper>(), _defaultWrapper, _noOpWrapper);
+            var wrapperMap = new WrapperMap(Mock.Create<IAgent>(), new List<IWrapper>(), new MethodWrapperTypes(Enumerable.Empty<Type>()), _defaultWrapper, _noOpWrapper);
 
             Mock.Arrange(() => _defaultWrapper.CanWrap(Arg.IsAny<InstrumentedMethodInfo>())).Returns(new CanWrapResponse(true));
             Mock.Arrange(() => _defaultWrapper.BeforeWrappedMethod(Arg.IsAny<InstrumentedMethodCall>(), Arg.IsAny<IAgent>(), Arg.IsAny<ITransaction>())).Returns((_, __) => result = "foo");
@@ -114,7 +121,7 @@ namespace NewRelic.Agent.Core.Wrapper
 
             var wrapperService = new WrapperService(_configurationService, wrapperMap, _agent, _agentHealthReporter, _agentTimerService);
 
-            var action = wrapperService.BeforeWrappedMethod(type, methodName, string.Empty, target, arguments, tracerFactoryName, null, EmptyTracerArgs, 0);
+            var action = wrapperService.BeforeWrappedMethod(GetMethod(type, methodName), methodName, string.Empty, target, arguments, tracerFactoryName, null, EmptyTracerArgs, 0);
             action(null, null);
 
             Assert.AreEqual("foo", result);
@@ -124,7 +131,7 @@ namespace NewRelic.Agent.Core.Wrapper
         public void BeforeWrappedMethod_UsesNoOpWrapper_IfNoMatchingWrapper_AndDefaultWrapperCanWrapReturnsFalse()
         {
             string result = null;
-            var wrapperMap = new WrapperMap(new List<IWrapper>(), _defaultWrapper, _noOpWrapper);
+            var wrapperMap = new WrapperMap(Mock.Create<IAgent>(), new List<IWrapper>(), new MethodWrapperTypes(Enumerable.Empty<Type>()), _defaultWrapper, _noOpWrapper);
             Mock.Arrange(() => _noOpWrapper.BeforeWrappedMethod(Arg.IsAny<InstrumentedMethodCall>(), Arg.IsAny<IAgent>(), Arg.IsAny<ITransaction>())).Returns((_, __) => result = "foo");
             Mock.Arrange(() => _defaultWrapper.CanWrap(Arg.IsAny<InstrumentedMethodInfo>())).Returns(new CanWrapResponse(false));
 
@@ -136,7 +143,7 @@ namespace NewRelic.Agent.Core.Wrapper
 
             var wrapperService = new WrapperService(_configurationService, wrapperMap, _agent, _agentHealthReporter, _agentTimerService);
 
-            var action = wrapperService.BeforeWrappedMethod(type, methodName, string.Empty, target, arguments, tracerFactoryName, null, EmptyTracerArgs, 0);
+            var action = wrapperService.BeforeWrappedMethod(GetMethod(type, methodName), methodName, string.Empty, target, arguments, tracerFactoryName, null, EmptyTracerArgs, 0);
             action(null, null);
 
             Assert.AreEqual("foo", result);
@@ -156,7 +163,7 @@ namespace NewRelic.Agent.Core.Wrapper
             var target = new object();
             var arguments = new object[0];
 
-            Assert.Throws<Exception>(() => _wrapperService.BeforeWrappedMethod(type, methodName, string.Empty, target, arguments, tracerFactoryName, null, EmptyTracerArgs, 0));
+            Assert.Throws<Exception>(() => _wrapperService.BeforeWrappedMethod(GetMethod(type, methodName), methodName, string.Empty, target, arguments, tracerFactoryName, null, EmptyTracerArgs, 0));
 
             Mock.Assert(_wrapperMap);
         }
@@ -167,7 +174,7 @@ namespace NewRelic.Agent.Core.Wrapper
             var wrapper = Mock.Create<IWrapper>();
             var trackedWrapper = new TrackedWrapper(wrapper);
 
-            var wrapperMap = new WrapperMap(new List<IWrapper> { wrapper }, _defaultWrapper, _noOpWrapper);
+            var wrapperMap = new WrapperMap(Mock.Create<IAgent>(), new List<IWrapper> { wrapper }, new MethodWrapperTypes(Enumerable.Empty<Type>()), _defaultWrapper, _noOpWrapper);
 
             Mock.Arrange(() => wrapper.BeforeWrappedMethod(Arg.IsAny<InstrumentedMethodCall>(), Arg.IsAny<IAgent>(), Arg.IsAny<ITransaction>())).Throws(new Exception());
             Mock.Arrange(() => _configurationService.Configuration.WrapperExceptionLimit).Returns(1);
@@ -188,8 +195,8 @@ namespace NewRelic.Agent.Core.Wrapper
 
             var wrapperService = new WrapperService(_configurationService, wrapperMap, _agent, _agentHealthReporter, _agentTimerService);
 
-            Assert.Throws<Exception>(() => wrapperService.BeforeWrappedMethod(type, methodName, argumentSignature, invocationTarget, arguments, tracerFactoryName, metricName, EmptyTracerArgs, 0));
-            Assert.DoesNotThrow(() => wrapperService.BeforeWrappedMethod(type, methodName, argumentSignature, invocationTarget, arguments, tracerFactoryName, metricName, EmptyTracerArgs, 0));
+            Assert.Throws<Exception>(() => wrapperService.BeforeWrappedMethod(GetMethod(type, methodName), methodName, argumentSignature, invocationTarget, arguments, tracerFactoryName, metricName, EmptyTracerArgs, 0));
+            Assert.DoesNotThrow(() => wrapperService.BeforeWrappedMethod(GetMethod(type, methodName), methodName, argumentSignature, invocationTarget, arguments, tracerFactoryName, metricName, EmptyTracerArgs, 0));
             Mock.Assert(_noOpWrapper);
         }
 
@@ -207,7 +214,7 @@ namespace NewRelic.Agent.Core.Wrapper
             var target = new object();
             var arguments = new object[0];
 
-            var afterWrappedMethod = _wrapperService.BeforeWrappedMethod(type, methodName, string.Empty, target, arguments, tracerFactoryName, null, EmptyTracerArgs, 0);
+            var afterWrappedMethod = _wrapperService.BeforeWrappedMethod(GetMethod(type, methodName), methodName, string.Empty, target, arguments, tracerFactoryName, null, EmptyTracerArgs, 0);
             Assert.Throws<Exception>(() => afterWrappedMethod(null, null));
 
             Mock.Assert(_wrapperMap);
@@ -219,7 +226,7 @@ namespace NewRelic.Agent.Core.Wrapper
             var wrapper = Mock.Create<IWrapper>();
             var trackedWrapper = new TrackedWrapper(wrapper);
 
-            var wrapperMap = new WrapperMap(new List<IWrapper> { wrapper }, _defaultWrapper, _noOpWrapper);
+            var wrapperMap = new WrapperMap(Mock.Create<IAgent>(), new List<IWrapper> { wrapper }, new MethodWrapperTypes(Enumerable.Empty<Type>()), _defaultWrapper, _noOpWrapper);
 
             Mock.Arrange(() => wrapper.BeforeWrappedMethod(Arg.IsAny<InstrumentedMethodCall>(), Arg.IsAny<IAgent>(), Arg.IsAny<ITransaction>())).Returns((result, exception) => { throw new Exception(); });
             Mock.Arrange(() => _configurationService.Configuration.WrapperExceptionLimit).Returns(1);
@@ -239,10 +246,10 @@ namespace NewRelic.Agent.Core.Wrapper
 
             var wrapperService = new WrapperService(_configurationService, wrapperMap, _agent, _agentHealthReporter, _agentTimerService);
 
-            var afterWrappedMethod1 = wrapperService.BeforeWrappedMethod(type, methodName, argumentSignature, invocationTarget, arguments, tracerFactoryName, metricName, EmptyTracerArgs, 0);
+            var afterWrappedMethod1 = wrapperService.BeforeWrappedMethod(GetMethod(type, methodName), methodName, argumentSignature, invocationTarget, arguments, tracerFactoryName, metricName, EmptyTracerArgs, 0);
             Assert.Throws<Exception>(() => afterWrappedMethod1(null, null));
 
-            var afterWrappedMethod2 = wrapperService.BeforeWrappedMethod(type, methodName, argumentSignature, invocationTarget, arguments, tracerFactoryName, metricName, EmptyTracerArgs, 0);
+            var afterWrappedMethod2 = wrapperService.BeforeWrappedMethod(GetMethod(type, methodName), methodName, argumentSignature, invocationTarget, arguments, tracerFactoryName, metricName, EmptyTracerArgs, 0);
             Assert.DoesNotThrow(() => afterWrappedMethod2(null, null));
         }
 
@@ -268,7 +275,7 @@ namespace NewRelic.Agent.Core.Wrapper
 
             using (var logging = new TestUtilities.Logging())
             {
-                var afterWrappedMethod = _wrapperService.BeforeWrappedMethod(type, methodName, string.Empty, target, arguments, tracerFactoryName, null, EmptyTracerArgs, 0);
+                var afterWrappedMethod = _wrapperService.BeforeWrappedMethod(GetMethod(type, methodName), methodName, string.Empty, target, arguments, tracerFactoryName, null, EmptyTracerArgs, 0);
 
                 Assert.AreEqual(Delegates.NoOp, afterWrappedMethod, "AfterWrappedMethod was not the NoOp delegate.");
                 Assert.False(logging.HasMessage("skipping method"));
